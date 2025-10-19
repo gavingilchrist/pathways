@@ -6,15 +6,68 @@ import numpy as np
 SQSIZE = 10
 
 
-class PlayArray(object):
-    def __init__(self, dims):
+class Cards(object):
+    def __init__(self):
         """
-        Capture dimensions, reset play area
+        Build cards, reset game state.
+        """
+        self.cards = self.make()
+        self.reset()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        """
+        Return next card
+        """
+        self.card_num += 1
+        if self.card_num >= self.cards.shape[0]:
+            return None
+        else:
+            return self.cards[self.card_num]
+
+    def make(self):
+        """
+        Generate array representing valid cards
+        """
+        c = [-1]*4
+        return np.array(list('RYBG'))\
+                   [np.array([[c[int(i)] for i in '0123112222113210']
+                              for c[0] in range(4)
+                              for c[1] in range(4)
+                              for c[2] in range(4)
+                              for c[3] in range(4)
+                              if all([c[i+1] != c[i] for i in range(3)])
+                                 and sum([(4**i)*j for i, j in enumerate(c)]) 
+                                     > sum([(4**i)*j for i, j in enumerate(c[::-1])])
+                                 and len(set(c)) < 4]).reshape(-1, 4, 4)]
+
+    def reset(self):
+        """
+        Shuffle cards, rotate(flip) random half, reset card_num counter
+        """
+        sortix = np.argsort(np.random.random(self.cards.shape[0]))
+        self.cards = self.cards[sortix]
+        
+        filt = np.random.random(self.cards.shape[0]) < 0.5
+        self.cards[filt] = np.flip(self.cards[filt], axis=2)
+
+        self.card_num = -1
+
+
+class PlayArray(object):
+    def __init__(self, dims, cards):
+        """
+        Capture dimensions and new card deck, reset play area
         """
         self.dims = dims
+        self.cards = cards
         self.define_screen()
         self.reset()
-        self.font = pygame.font.SysFont('stencil', 36)
+        self.font = pygame.font.Font(os.path.join(os.path.dirname(__file__), 
+                                                  'STENCIL.TTF'), 
+                                     36)
 
     def define_screen(self):
         """
@@ -50,7 +103,7 @@ class PlayArray(object):
             cl_txt = ' '*30
         else:
             sc_txt = f'Score: {self.score}   '
-            cl_txt = f'   {42 - cards.card_num} cards left'
+            cl_txt = f'   {42 - self.cards.card_num} cards left'
             
         sc_txt_img = self.font.render(sc_txt, 
                                       True, 
@@ -235,56 +288,6 @@ class Card(pygame.sprite.Sprite):
                                     for i in scoring_regions])
 
 
-class Cards(object):
-    def __init__(self):
-        """
-        Build cards, reset game state.
-        """
-        self.cards = self.make()
-        self.reset()
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        """
-        Return next card
-        """
-        self.card_num += 1
-        if self.card_num >= self.cards.shape[0]:
-            return None
-        else:
-            return self.cards[self.card_num]
-
-    def make(self):
-        """
-        Generate array representing valid cards
-        """
-        c = [-1]*4
-        return np.array(list('RYBG'))\
-                   [np.array([[c[int(i)] for i in '0123112222113210']
-                              for c[0] in range(4)
-                              for c[1] in range(4)
-                              for c[2] in range(4)
-                              for c[3] in range(4)
-                              if all([c[i+1] != c[i] for i in range(3)])
-                                 and sum([(4**i)*j for i, j in enumerate(c)]) 
-                                     > sum([(4**i)*j for i, j in enumerate(c[::-1])])
-                                 and len(set(c)) < 4]).reshape(-1, 4, 4)]
-
-    def reset(self):
-        """
-        Shuffle cards, rotate(flip) random half, reset card_num counter
-        """
-        sortix = np.argsort(np.random.random(self.cards.shape[0]))
-        self.cards = self.cards[sortix]
-        
-        filt = np.random.random(self.cards.shape[0]) < 0.5
-        self.cards[filt] = np.flip(self.cards[filt], axis=2)
-
-        self.card_num = -1
-
-
 def play():
     """
     Play the game!
@@ -294,9 +297,8 @@ def play():
     pygame.init()
 
     # Initialize play area, card list; get first card (for icon image)
-    pa = PlayArray((800, 600))
-    cards = Cards()
-    card = Card(next(cards), pa, pa.center())
+    pa = PlayArray((800, 600), Cards())
+    card = Card(next(pa.cards), pa, pa.center())
 
     # Set window caption and icon
     pygame.display.set_caption("Pathways")
@@ -304,7 +306,7 @@ def play():
 
     # Place first card at center of screen, get next card
     card.place(force=True)
-    card = Card(next(cards), pa, pa.center())
+    card = Card(next(pa.cards), pa, pa.center())
     pa.show_score()
 
     # Game loop
@@ -317,7 +319,7 @@ def play():
             elif gameon:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if card.place():
-                        nextcard = next(cards)
+                        nextcard = next(pa.cards)
                         if nextcard is None:
                             pa.show_score(final=True)
                             gameon = False
