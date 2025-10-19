@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pathways-game"
-version = "0.1.0"
+version = "0.1.2"
 description = "A game made with pygame"
 authors = [
     {name = "Gavin Gilchrist", email = "gavin.d.gilchrist@gmail.com"}
